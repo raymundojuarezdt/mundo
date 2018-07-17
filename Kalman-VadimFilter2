@@ -1,0 +1,80 @@
+# Kalman filter example demo in Python
+
+# A Python implementation of the example given in pages 11-15 of "An
+# Introduction to the Kalman Filter" by Greg Welch and Gary Bishop,
+# University of North Carolina at Chapel Hill, Department of Computer
+# Science, TR 95-041,
+# http://www.cs.unc.edu/~welch/kalman/kalmanIntro.html
+
+# by Andrew D. Straw
+
+import numpy as np
+import matplotlib.pyplot as plt
+from numpy import dot
+from numpy.linalg import inv 
+
+plt.rcParams['figure.figsize'] = (10, 8)
+
+# intial parameters
+n_iter = 10
+sz = (n_iter,1) # size of array
+ 
+x =np.empty((2,1,n_iter)) # truth value (typo in example at top of p. 13 calls this z)
+mean=0; #Media de Lognormal
+DE=1; #Desviación estándar de Lognormal
+A=np.matrix([[1,1],[0.0,1]])
+B=np.matrix([[0.5],[1.0]])
+C=np.matrix([1,0])
+g=-1
+z1 = np.random.normal(0,0.5,size=sz) # observations (normal about x, sigma=0.1)
+z2 = np.random.normal(0,0.5,size=sz) # observations (normal about x, sigma=0.1)
+#z = np.random.lognormal(mean,DE,size=sz) # observations (normal about x, sigma=0.1)
+
+Q =np.matrix([[1e-5,0.0],[0.0,1e-5]]) # process variance
+
+# allocate space for arrays
+xhat=np.empty((2,1,n_iter))     # a posteri estimate of x
+P=np.empty((2,2,n_iter))      # a posteri error estimate
+xhatminus=np.empty((2,1,n_iter)) # a priori estimate of x
+Pminus=np.empty((2,2,n_iter))    # a priori error estimate
+K=np.empty((2,1,n_iter))         # gain or blending factor
+xreal=np.empty((2,1,n_iter))     # a real value of x (using system x=cte)
+z=np.zeros(sz)     # a real value of x (using system x=cte)
+
+R =1 # estimate of measurement variance, change to see effect
+
+# intial guesses
+xhat[:,:,0] =[[95.0],[0.0]]
+P[:,:,0]=[[10.0,0.0],[0.0,1.0]]
+x[:,:,0]=[[100.0],[0.0]]
+xreal[:,:,0]=x[:,:,0]
+
+for k in range(1,n_iter):
+    #Real system
+    xreal[:,:,k]=dot(A,xreal[:,:,k-1])+dot(B,g)
+    z[k]=dot(C,xreal[:,:,k])+z1[k]
+    
+    # time update
+    xhatminus[:,:,k]= dot(A,xhat[:,:,k-1])+dot(B,g)
+    Pminus[:,:,k] =dot(A,dot( P[:,:,k-1],A.T))+Q
+    
+    # measurement update
+    K[:,:,k] =dot(dot(Pminus[:,:,k],C.T),inv(dot(C,dot(Pminus[:,:,k],C.T))+R ))
+    xhat[:,:,k] = xhatminus[:,:,k]+dot(K[:,:,k],(z[k]-dot(C,xhatminus[:,:,k])))
+    P[:,:,k] = Pminus[:,:,k]-dot(K[:,:,k],dot( dot(C,dot(Pminus[:,:,k],C.T))+R,np.transpose(K[:,:,k])))
+   
+
+plt.figure()
+#valid_iter1 = range(0,6) # Pminus not valid at step 0
+plt.plot(z,'k',label='noisy measurements')
+plt.plot(np.transpose(xhat[0,:,:]),'b-',label='a posteri estimate')
+#plt.axhline(x,color='g',label='truth value')
+plt.plot(np.transpose(xreal[0,:,:]),'g-',label='truth value')
+#plt.xlim([0,6])
+#plt.ylim([85,105])
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Height')
+
+plt.show()
